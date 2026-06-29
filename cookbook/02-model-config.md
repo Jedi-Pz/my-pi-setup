@@ -91,24 +91,9 @@ host.docker.internal       共享模式                  127.0.0.1:15721
 
 Pi 对模型名做模糊匹配，`claude-sonnet-4-6` 会匹配到内置模型列表里的对应模型。
 
-## 添加新 Provider
+## 关于其他 Provider
 
-如果以后想加 OpenAI 或其他 provider 走同一个代理，在 `models.json` 里加：
-
-```json
-{
-  "providers": {
-    "anthropic": {
-      "baseUrl": "http://host.docker.internal:15721"
-    },
-    "openai": {
-      "baseUrl": "http://host.docker.internal:15721/v1",
-      "api": "openai-completions",
-      "apiKey": "any"
-    }
-  }
-}
-```
+`cc-switch` 是 **Anthropic 专用代理**，不能转发 OpenAI/DeepSeek 等请求。如果要给 Pi 加其他 provider，需要提供真实的 API key（通过 `auth.json` 或环境变量），并且走那个 provider 的官方 API 地址，不走代理。
 
 ## 升级后的注意事项
 
