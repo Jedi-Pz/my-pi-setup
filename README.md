@@ -6,7 +6,8 @@
 
 - **在哪用就在哪工作** — 你 `cd` 到哪个目录，敲 `pi`，那个目录就是容器里的工作区。换项目不需要切配置，Docker 容器完全透明
 - **主 SSD 零占用** — 所有持久存储在外挂硬盘，`~/.colima` 是符号链接，主 SSD 上只有 23 字节
-- **和 Claude Code 同一个模型** — 共享 DeepSeek cc-switch 代理，`models.json` 只需一行 `baseUrl`，切后端零改动
+- **和 Claude Code 同一个模型** — 共享 cc-switch 代理，`models.json` 只需一行 `baseUrl`，切后端零改动
+- **存储路径可指定** — 把 `~/.colima` 符号链接到任意路径（外挂盘、内建 SSD、NAS 都行），Colima VM 和所有容器数据就落在哪。不写死路径
 - **容器安全隔离** — cap-drop ALL、no-new-privileges、4GB 内存限制、2 核 CPU、pid-limit 100
 - **会话持久化** — `pi --continue` 接着聊、`pi --resume` 选历史对话
 - **可移植** — 不写死路径，`colima.yaml` 用 `"~"` 自动解析家目录，clone 下来改几个地方就能用
