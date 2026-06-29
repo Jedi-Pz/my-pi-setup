@@ -150,10 +150,25 @@ $ cd /tmp/test                           Pi → /workspace (= /tmp/test)
 
 所以 `pi` 这个 alias 本质上把 Docker 容器完全藏起来了 —— 你用起来就像它是一个本地命令，只是刚好跑在隔离环境里。
 
+但有一个前提：**你所在的目录必须被 Colima 挂载进了 Linux VM**。Colima 的 virtiofs 只挂载了 `colima.yaml` 里配置的路径。当你显式指定 `mounts` 时，它会覆盖 Colima 默认的 `$HOME` 挂载，所以需要两个都写上：
+
+```yaml
+# /Volumes/Storage/colima/default/colima.yaml
+mounts:
+  - location: /Volumes/Storage/Project
+    writable: true
+  - location: /Users/pz
+    writable: true
+```
+
+另外 YAML 里不能写 `~`（会被解析成 null），必须用绝对路径。
+
 ## 踩过的坑
 
 1. **`credsStore: "desktop"`**：`~/.docker/config.json` 里这个配置指向不存在的 `docker-credential-desktop`，导致 `docker pull` 报错。改成空字符串解决。
 
 2. **`--cap-drop ALL` 和 `--security-opt no-new-privileges` 不能用逗号分隔**：新版 Docker 的 `--cap-drop` 和 `--security-opt` 不能写在一起，必须分开。
 
-3. **容器内的 `/home/pi` 没有写入权限**：`--read-only` 会影响 Pi 的 npm 操作，去掉后不影响安全边界（真正的隔离在 VM 层）。
+3. **YAML 里的 `~` 是 null**：Colima 配置文件是 YAML，`~` 在 YAML 里表示 null。写 `location: ~` 会被解析成空字符串，导致 Colima 报 "overlapping mounts" 的误导性错误。必须用 `location: /Users/pz` 绝对路径。
+
+4. **显式 `mounts` 会覆盖默认 `$HOME` 挂载**：Colima 默认挂载 `$HOME`，但一旦在 `colima.yaml` 里写了 `mounts` 列表，这个默认就被覆盖了。如果需要 `$HOME`，必须显式加上。
