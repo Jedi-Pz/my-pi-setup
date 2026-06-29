@@ -5,23 +5,35 @@ Pi coding agent sandbox running in a Colima VM + Docker container on macOS (Appl
 ## Quickstart
 
 ```bash
-# One-time setup
+# 1. Install prerequisites
 brew install colima docker
+
+# 2. Start Colima (edit mounts to match your setup)
 colima start --vm-type=vz --vz-rosetta --cpu 4 --memory 6 --disk 60
+
+# 3. Ensure these mounts are in colima.yaml (add if missing):
+#    mounts:
+#      - location: "<your-project-drive>"   # external drive, if any
+#        writable: true
+#      - location: "~"
+#        writable: true
+
+# 4. Build Pi container image
 docker build -t pi-sandbox .
 
+# 5. Add alias to ~/.zshrc
+#    alias pi="<path-to-this-repo>/pi-sandbox.sh"
+
 # Use
-./pi-sandbox.sh              # interactive mode
-./pi-sandbox.sh --continue   # resume previous session
-./pi-sandbox.sh -p "..."     # non-interactive, single prompt
-```
+pi                          # interactive mode
+pi --continue               # resume previous session
+pi -p "..." --no-session    # one-shot, ephemeral
 
 ## Files
 
 - `Dockerfile` — Pi container image (Node 24 + pi 0.80.2 + git + ripgrep + fd)
 - `pi-sandbox.sh` — Launch script (cap-drop ALL, resource limits, persistent volume)
-- `docs/` — Design specs and implementation plans
-- `sandbox-research-report.md` — Survey of 12 sandbox technologies for AI agent isolation
+- `cookbook/` — Setup guides and configuration notes
 
 ## Architecture
 

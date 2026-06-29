@@ -150,18 +150,18 @@ $ cd /tmp/test                           Pi → /workspace (= /tmp/test)
 
 所以 `pi` 这个 alias 本质上把 Docker 容器完全藏起来了 —— 你用起来就像它是一个本地命令，只是刚好跑在隔离环境里。
 
-但有一个前提：**你所在的目录必须被 Colima 挂载进了 Linux VM**。Colima 的 virtiofs 只挂载了 `colima.yaml` 里配置的路径。当你显式指定 `mounts` 时，它会覆盖 Colima 默认的 `$HOME` 挂载，所以需要两个都写上：
+Colima 的 virtiofs 需要把宿主目录挂进 Linux VM。`colima.yaml` 里用 `"~"`（加引号防止 YAML 把它当 null）来指向当前用户的家目录，这样任何人 clone 下来直接就能用，不用改路径：
 
 ```yaml
-# /Volumes/Storage/colima/default/colima.yaml
+# colima.yaml
 mounts:
-  - location: /Volumes/Storage/Project
+  - location: /Volumes/Storage/Project   # 外挂盘（按实际路径调整）
     writable: true
-  - location: /Users/pz
+  - location: "~"                        # 家目录，加引号避免 YAML 把 ~ 当 null
     writable: true
 ```
 
-另外 YAML 里不能写 `~`（会被解析成 null），必须用绝对路径。
+> 默认 Colima 会挂载 `$HOME`，但一旦显式写了 `mounts` 就覆盖了默认值，所以两者都要列。
 
 ## 踩过的坑
 
@@ -169,6 +169,6 @@ mounts:
 
 2. **`--cap-drop ALL` 和 `--security-opt no-new-privileges` 不能用逗号分隔**：新版 Docker 的 `--cap-drop` 和 `--security-opt` 不能写在一起，必须分开。
 
-3. **YAML 里的 `~` 是 null**：Colima 配置文件是 YAML，`~` 在 YAML 里表示 null。写 `location: ~` 会被解析成空字符串，导致 Colima 报 "overlapping mounts" 的误导性错误。必须用 `location: /Users/pz` 绝对路径。
+3. **YAML 里的 `~` 是 null**：Colima 配置文件是 YAML，`~` 不加引号会被解析成 null。写法是 `location: "~"`——加引号后 YAML 把它当字符串传给 Colima，Colima 自己展开到当前用户的家目录。
 
 4. **显式 `mounts` 会覆盖默认 `$HOME` 挂载**：Colima 默认挂载 `$HOME`，但一旦在 `colima.yaml` 里写了 `mounts` 列表，这个默认就被覆盖了。如果需要 `$HOME`，必须显式加上。
