@@ -4,13 +4,60 @@
 
 ## 为什么是这个方案
 
-### CubeSandbox：理论最强，实际不行
+### CubeSandbox：服务器上极佳，本地不适用
 
-最初想用腾讯云的 CubeSandbox——硬件级 KVM MicroVM 隔离，60ms 冷启动，2000+ 沙箱/服务器。但它的硬性要求全部不满足：
-- 需要 Linux x86_64 宿主机 + KVM（macOS 没有）
-- 需要 XFS 文件系统（macOS 不支持）
-- 所有二进制都是 x86_64（Apple Silicon 跑不了）
-- 嵌套虚拟化方案在 macOS 上不可行且性能极差
+[CubeSandbox](https://github.com/TencentCloud/CubeSandbox) 是腾讯云在 2026 年 4 月开源的 AI Agent 专用沙箱（Apache 2.0）。它不是研究原型——在开源之前已经在腾讯内部支撑了每天数十亿次调用，运行着腾讯的 AI 助手元宝。
+
+**解决的问题：** Docker 容器共享宿主机内核，内核漏洞 = 宿主机沦陷。传统 VM 启动太慢（秒级）且太重。CubeSandbox 在这两者之间打出了一个新品类——**硬件级 KVM MicroVM 隔离 + 容器级性能**。
+
+**核心数据：**
+
+| 指标 | 数值 |
+|------|------|
+| 冷启动 | < 60ms（快照恢复，跳过 OS 引导） |
+| 内存开销 | < 5MB / 实例（CoW 内存复用） |
+| 密度 | 2000+ 沙箱 / 物理服务器 |
+| 腾讯内部效果 | 迁移 AI 编码场景后，资源核时消耗降低 95.8% |
+| 开源时间 | 2026-04-20 |
+| 最新版本 | v0.4.0（2026-06-15），17 个 release |
+| Star | ~6,600（不到 10 周） |
+
+**怎么做到的：** 模板根文件系统从 OCI 镜像预构建 → 冷启动一次、初始化运行时 → 捕获内存快照 → 创建沙箱时用 XFS reflink 零拷贝克隆快照 → RustVMM 恢复，绕过整个 OS 启动序列。50 并发创建：平均 67ms，P95 90ms。
+
+**架构（控制面 + 数据面）：**
+
+| 组件 | 语言 | 职责 |
+|------|------|------|
+| CubeAPI | Rust (Axum) | E2B 兼容 REST API 网关 |
+| CubeMaster | Go | 集群编排，创建/销毁/暂停/恢复 |
+| Cubelet | Go | 每节点生命周期代理 |
+| CubeShim | Rust | containerd Shim v2，容器抽象 → MicroVM 操作 |
+| CubeHypervisor | Rust (RustVMM + KVM) | 轻量 VMM，Seccomp 加固 |
+| CubeVS | eBPF (C) | 内核级虚拟交换机，无 iptables |
+| CubeCoW | Rust | CoW 存储引擎，XFS reflink |
+| CubeProxy | OpenResty | 反向代理路由请求到沙箱实例 |
+| CubeEgress | OpenResty | L7 出口代理：域名过滤、凭证注入、审计 |
+
+**六层隔离模型：**
+1. **硬件隔离** — 每个沙箱跑独立 Linux 内核（KVM MicroVM），无共享内核逃逸面
+2. **网络隔离** — CubeVS（eBPF）默认阻止所有私有/本地链路范围，沙箱无法触及宿主机网络命名空间
+3. **出口控制** — CubeEgress L7 代理强制域名白名单，DNS 泄露或 TCP 握手完成前就阻断
+4. **凭证保管** — API 密钥在出口代理层改写 HTTP 头注入，沙箱进程永远看不到真实密钥
+5. **Seccomp 加固** — CubeHypervisor 跑在最小化系统调用白名单上
+6. **可插拔认证** — CubeAPI 支持认证回调
+
+**E2B SDK 兼容：** 现有 E2B 代码解释器沙箱的代码，改一个 URL 环境变量就能切到 CubeSandbox。
+
+**部署：** 一条命令在线安装，支持 OpenCloudOS 9 / TencentOS 4 / Ubuntu 20.04+。需要 Linux x86_64 宿主机、KVM（或 PVM 内核）、XFS 文件系统、≥ 8GB RAM、≥ 50GB 磁盘。生产环境推荐 32 核 / 64GB。
+
+**为什么在本地不适用：**
+- 需要 KVM（`/dev/kvm`），macOS 不存在
+- 所有二进制都是 x86_64，无 arm64 构建
+- 需要 XFS reflink，macOS 不支持
+- 嵌套虚拟化方案（macOS → Linux VM → CubeSandbox KVM MicroVM）性能极差且完全不受支持
+- 32 核 / 64GB 的推荐配置望尘莫及
+
+> **结论：** CubeSandbox 是服务器端多租户 AI Agent 沙箱的未来标准候选。如果你将来在 x86_64 Linux 服务器上部署 Pi 作为托管服务，CubeSandbox 是首选。但在 macOS 笔记本上搞本地开发，不适用。
 
 ### 选型：Colima + Docker
 
