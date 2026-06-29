@@ -1,42 +1,41 @@
-# Pi coding agent sandbox
-# ========================
+# Pi 编码助手沙箱
+# ================
 #
-# This builds a container image for running Pi with security hardening.
-# The image itself is portable — no personal paths or credentials baked in.
+# 构建一个带安全加固的 Pi 容器镜像。
+# 镜像本身是可移植的——不写死任何个人路径或凭据。
 #
-# What YOU need to configure for your machine:
+# 你需要为自己的机器做以下配置：
 #
-#   1. colima.yaml mounts
-#      Pi accesses host directories via virtiofs. Add the paths you want
-#      Pi to work in:
+#   1. colima.yaml 挂载
+#      Pi 通过 virtiofs 访问宿主机目录。把你希望 Pi 工作的路径加进去：
 #        mounts:
-#          - location: "<your-project-drive>"  # e.g. /Volumes/Data
+#          - location: "<你的项目盘>"  # 如 /Volumes/Data
 #            writable: true
-#          - location: "~"                     # home dir (quotes required!)
+#          - location: "~"             # 家目录（引号不能省！YAML 会把裸 ~ 当 null）
 #            writable: true
 #
 #   2. pi-sandbox.sh
-#      The launch script mounts $PWD → /workspace (the directory you run
-#      `pi` from becomes the container's working directory). If you want
-#      a fixed project path instead, set WORKSPACE before running.
+#      启动脚本会把 $PWD → /workspace（你在哪个目录执行 `pi`，
+#      那个目录就成了容器的工作目录）。如果想固定项目路径，运行前
+#      设一下 WORKSPACE 环境变量即可。
 #
-#   3. models.json (inside the pi-data Docker volume)
-#      Points Anthropic to your local proxy. See cookbook/02-model-config.md.
+#   3. models.json（存在 pi-data Docker 卷里）
+#      把 Anthropic 指向你的本地代理。详见 cookbook/02-model-config.md。
 #
-# Build:  docker build -t pi-sandbox .
-# Run:    ./pi-sandbox.sh          (or: alias pi="path/to/pi-sandbox.sh")
+# 构建：docker build -t pi-sandbox .
+# 运行：./pi-sandbox.sh           （或：alias pi="路径/pi-sandbox.sh"）
 
 FROM node:24-bookworm-slim
 
-# System dependencies: git for version control, ripgrep + fd for file search
+# 系统依赖：git 版本控制、ripgrep + fd 文件搜索
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash ca-certificates git ripgrep fd-find \
     && rm -rf /var/lib/apt/lists/*
 
-# Pi coding agent (Anthropic-compatible, connects via local proxy)
+# Pi 编码助手（兼容 Anthropic API，通过本地代理连接）
 RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 
-# Non-root user. /workspace is the bind-mount target for your host directory.
+# 非 root 用户。/workspace 是宿主机目录的 bind-mount 目标。
 RUN useradd -m -s /bin/bash pi \
     && mkdir -p /workspace \
     && chown pi:pi /workspace
