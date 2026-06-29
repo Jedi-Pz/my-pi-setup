@@ -128,6 +128,28 @@ colima start --vm-type=vz --vz-rosetta --cpu 4 --memory 6 --disk 60 --mount /Vol
 
 Docker 镜像和卷不会丢失（都在外挂盘上）。
 
+## 小巧思：在任何目录直接用 `pi`
+
+这个沙箱有一个设计上的巧思 —— 你不需要「进到容器里」或者「切换到某个特定目录」才能用 Pi。你只需要在 macOS 宿主机上，`cd` 到任意一个工作目录，直接打 `pi`，那个目录就自动变成容器里的 `/workspace`。
+
+原理：
+
+```
+你在宿主机哪个目录                      Pi 在容器里看到的就是
+─────────────────                      ────────────────────
+$ cd /Volumes/Storage/Project/my-app     Pi → /workspace (= my-app)
+$ cd ~/Code/another-project              Pi → /workspace (= another-project)
+$ cd /tmp/test                           Pi → /workspace (= /tmp/test)
+```
+
+怎么做到的：
+
+1. `pi-sandbox.sh` 里有一行 `-v "$PWD:/workspace"`，把你在宿主机所在的当前目录 bind mount 进容器
+2. `.zshrc` 里 alias `pi="/Volumes/Storage/Project/pi-study/pi-sandbox.sh"` 让你在任何地方都能敲 `pi`
+3. Pi 在容器里从 `/workspace` 看出去，文件操作（read/write/edit/bash）都落在这个目录
+
+所以 `pi` 这个 alias 本质上把 Docker 容器完全藏起来了 —— 你用起来就像它是一个本地命令，只是刚好跑在隔离环境里。
+
 ## 踩过的坑
 
 1. **`credsStore: "desktop"`**：`~/.docker/config.json` 里这个配置指向不存在的 `docker-credential-desktop`，导致 `docker pull` 报错。改成空字符串解决。
