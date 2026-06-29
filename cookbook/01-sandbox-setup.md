@@ -1,6 +1,6 @@
 # Sandbox Configuration
 
-如何在一台 16GB RAM / 256GB SSD 的 macOS Apple Silicon 上，用外挂硬盘搭建 Pi coding agent 的隔离沙箱，主硬盘零占用。
+在 macOS Apple Silicon 上通过 Colima + Docker 搭建 Pi 编码助手的隔离沙箱。以下记录以部署在外挂硬盘为例——通过符号链接，存储路径可自由指定，主 SSD、外挂盘、NAS 都可以。
 
 ## 为什么是这个方案
 
@@ -101,8 +101,8 @@ macOS 宿主机
 主硬盘只有 256GB，外挂盘 715GB。所有持久存储走外挂盘：
 
 ```
-/Volumes/Storage/colima/          ← Colima 家目录（VM 磁盘、配置）
-~/.colima → /Volumes/Storage/colima/  ← 符号链接（主 SSD: 23 字节）
+/你想放的位置/colima/              ← Colima 家目录（VM 磁盘、配置）
+~/.colima → /你想放的位置/colima/   ← 符号链接
 ```
 
 关键点：
@@ -113,9 +113,8 @@ macOS 宿主机
 
 验证命令：
 ```bash
-ls -la ~/.colima                              # 确认是符号链接
-du -sh ~/.colima                              # 主 SSD 用量（应为 0B）
-ls -lh /Volumes/Storage/colima/_lima/_disks/colima/datadisk  # VM 磁盘位置
+ls -la ~/.colima                              # 确认是符号链接（或真实目录）
+ls -lh ~/.colima/default/                     # VM 配置文件所在
 ```
 
 ## 如何重建
@@ -123,7 +122,7 @@ ls -lh /Volumes/Storage/colima/_lima/_disks/colima/datadisk  # VM 磁盘位置
 Colima VM 停止或重启后，只需要：
 
 ```bash
-colima start --vm-type=vz --vz-rosetta --cpu 4 --memory 6 --disk 60 --mount /Volumes/Storage/Project:w
+colima start --vm-type=vz --vz-rosetta --cpu 4 --memory 6 --disk 60 --mount "<你的项目路径>:w"
 ```
 
 Docker 镜像和卷不会丢失（都在外挂盘上）。
@@ -137,7 +136,7 @@ Docker 镜像和卷不会丢失（都在外挂盘上）。
 ```
 你在宿主机哪个目录                      Pi 在容器里看到的就是
 ─────────────────                      ────────────────────
-$ cd /Volumes/Storage/Project/my-app     Pi → /workspace (= my-app)
+$ cd ~/projects/my-app                  Pi → /workspace (= my-app)
 $ cd ~/Code/another-project              Pi → /workspace (= another-project)
 $ cd /tmp/test                           Pi → /workspace (= /tmp/test)
 ```
@@ -145,7 +144,7 @@ $ cd /tmp/test                           Pi → /workspace (= /tmp/test)
 怎么做到的：
 
 1. `pi-sandbox.sh` 里有一行 `-v "$PWD:/workspace"`，把你在宿主机所在的当前目录 bind mount 进容器
-2. `.zshrc` 里 alias `pi="/Volumes/Storage/Project/pi-study/pi-sandbox.sh"` 让你在任何地方都能敲 `pi`
+2. `.zshrc` 里 alias `pi="<本仓库路径>/pi-sandbox.sh"` 让你在任何地方都能敲 `pi`
 3. Pi 在容器里从 `/workspace` 看出去，文件操作（read/write/edit/bash）都落在这个目录
 
 所以 `pi` 这个 alias 本质上把 Docker 容器完全藏起来了 —— 你用起来就像它是一个本地命令，只是刚好跑在隔离环境里。
@@ -155,7 +154,7 @@ Colima 的 virtiofs 需要把宿主目录挂进 Linux VM。`colima.yaml` 里用 
 ```yaml
 # colima.yaml
 mounts:
-  - location: /Volumes/Storage/Project   # 外挂盘（按实际路径调整）
+  - location: <你的项目路径>         # 按实际情况填写
     writable: true
   - location: "~"                        # 家目录，加引号避免 YAML 把 ~ 当 null
     writable: true

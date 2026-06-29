@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-本仓库是一个可移植的 Pi 编码助手沙箱配置，基于 Colima + Docker，所有存储在外挂硬盘，主 SSD 零占用。
+本仓库是一个可移植的 Pi 编码助手沙箱配置，基于 Colima + Docker。存储路径可通过 `~/.colima` 符号链接自行指定。
 
 ## 核心规则
 
@@ -11,12 +11,12 @@
 ## 架构
 
 ```
-macOS 宿主机 (Apple Silicon, 16GB RAM, 256GB SSD)
+macOS 宿主机 (Apple Silicon)
   │
-  │  ~/.colima → /Volumes/Storage/colima/  (符号链接)
+  │  ~/.colima → <任意存储路径>  (符号链接，按需指向)
   │
   └── Colima Linux 虚拟机 (VZ.framework, 4 核, 6GB 内存, 60GB 稀疏磁盘)
-       │  VM 磁盘: /Volumes/Storage/colima/_lima/_disks/colima/datadisk
+       │  VM 磁盘在符号链接目标下
        │
        └── Docker 容器 (cap-drop ALL, no-new-privileges, 4GB 内存, 2 核, pid-limit 100)
             │  镜像: node:24-bookworm-slim + @earendil-works/pi-coding-agent
@@ -29,16 +29,15 @@ macOS 宿主机 (Apple Silicon, 16GB RAM, 256GB SSD)
 
 ## 存储
 
-- **所有持久存储在外挂硬盘 `/Volumes/Storage/`（715GB APFS）。**
-- `~/.colima` 是符号链接，指向 `/Volumes/Storage/colima/`。
-- Colima VM 磁盘文件 `datadisk` 是 APFS 稀疏文件（声明 60GB，实际按需增长）。
+- 存储位置通过 `~/.colima` 符号链接控制——链接指到哪，Colima VM 磁盘和所有容器数据就落在哪。
+- 当前用户部署在外挂硬盘 `/Volumes/Storage/` 上（个人选择，非强制）。
+- Colima VM 磁盘文件是稀疏文件（声明 60GB，实际按需增长）。
 - Docker 镜像、层、卷全部在 VM 磁盘内。
-- 主 SSD 持久占用：0 字节（仅符号链接本身）。
-- 项目路径：`/Volumes/Storage/Project/pi-study/`
+- 无符号链接时，Colima 直接使用 `~/.colima` 实际目录（即落在主 SSD 上），同样能用。
 
 ## 模型配置
 
-- 本地代理：`cc-switch`（DeepSeek），监听 `127.0.0.1:15721`
+- 本地代理：`cc-switch`，监听 `127.0.0.1:15721`
 - 完整实现 Anthropic Messages API，无需 compat 限制
 - 容器内通过 `host.docker.internal:15721` 访问
 - API key 任意值（代理不验证），真实密钥由代理持有
@@ -50,7 +49,7 @@ macOS 宿主机 (Apple Silicon, 16GB RAM, 256GB SSD)
 
 - `Dockerfile` — Pi 容器镜像（Node 24 + pi 0.80.2 + git + ripgrep + fd）
 - `pi-sandbox.sh` — 启动脚本
-- `cookbook/` — 按编号排序的实战笔记（01、02、03…），README.md 是目录
+- `cookbook/` — 按编号排序的实战笔记（01、02…），README.md 是目录
 - `docs/superpowers/` — gitignored，不在仓库里
 
 ## 常用操作
@@ -65,19 +64,18 @@ docker build --no-cache -t pi-sandbox .
 ./pi-sandbox.sh -p "提示词" --no-session  # 一次性
 
 # Colima 管理
-colima start   # 启动（配置在 /Volumes/Storage/colima/default/colima.yaml）
+colima start   # 启动（配置在 ~/.colima/default/colima.yaml）
 colima stop    # 停止
 colima status  # 查看状态
 
-# 确认存储正确
-ls -la ~/.colima                                    # 应该是符号链接
-du -sh ~/.colima                                    # 主 SSD 用量（应为 0B）
-ls -lh /Volumes/Storage/colima/_lima/_disks/colima/datadisk  # VM 磁盘
+# 确认存储位置
+ls -la ~/.colima               # 应该是符号链接（或真实目录）
+colima ssh -- mount | grep virtio  # 查看 virtiofs 挂载
 ```
 
 ## 注意
 
-- `colima.yaml` 不在仓库里，在 `/Volumes/Storage/colima/default/colima.yaml`。显式指定 mounts 会覆盖默认 `$HOME` 挂载，需要同时写 `"~"` 和外挂盘路径。
+- `colima.yaml` 不在仓库里，在 `~/.colima/default/colima.yaml`。显式指定 mounts 会覆盖默认 `$HOME` 挂载，需要同时写 `"~"` 和需要的项目路径。
 - YAML 里 `~` 不加引号会被解析成 null，写成 `location: "~"`。
 - Colima 0.10.1 不支持 `--runtime podman`，只有 docker 和 containerd。
 - Pi 的配置和数据在 `pi-data` Docker 卷里（`models.json`、`settings.json`、`auth.json`、`sessions/`），不会被 `docker build` 覆盖。
