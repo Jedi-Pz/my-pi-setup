@@ -38,6 +38,14 @@ cc-switch 不验证 `x-api-key` 头，任意值都行：
 
 真正的 API key 由 cc-switch 持有，容器内的 Pi 不知道真实密钥。这是个安全优势：即使容器被攻破，也无法泄露 API key。
 
+## 代理的抽象价值
+
+Pi 只认 `http://host.docker.internal:15721`，完全不知道也不关心 cc-switch 背后是什么。cc-switch 负责把 Anthropic Messages API 的请求转发到实际的模型后端——当前是 DeepSeek。
+
+**切换后端只需改 cc-switch 的配置，Pi 这边零改动。** 比如将来 cc-switch 把后端从 DeepSeek 切到另一个模型，Pi 还是照常发请求到同一个地址，一切透明。这也是为什么 `models.json` 里只需要一行 `baseUrl`——所有复杂性都在代理那一层处理掉了。
+
+同样的逻辑也适用于 Claude Code：它和 Pi 共享同一个代理，所以两者始终用同一个后端模型，不会出现一边是 DeepSeek 另一边是别的模型的情况。
+
 ## settings.json
 
 ```json
