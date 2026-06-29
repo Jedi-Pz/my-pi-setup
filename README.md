@@ -1,6 +1,16 @@
 # 我的 Pi 配置
 
-在 macOS (Apple Silicon) 上通过 Colima 虚拟机 + Docker 容器运行 Pi 编码助手的沙箱。所有存储在外挂硬盘，主 SSD 零占用。
+在 macOS (Apple Silicon) 上通过 Colima 虚拟机 + Docker 容器运行 Pi 编码助手的沙箱。
+
+## 特性
+
+- **在哪用就在哪工作** — 你 `cd` 到哪个目录，敲 `pi`，那个目录就是容器里的工作区。换项目不需要切配置，Docker 容器完全透明
+- **主 SSD 零占用** — 所有持久存储在外挂硬盘，`~/.colima` 是符号链接，主 SSD 上只有 23 字节
+- **和 Claude Code 同一个模型** — 共享 DeepSeek cc-switch 代理，`models.json` 只需一行 `baseUrl`，切后端零改动
+- **容器安全隔离** — cap-drop ALL、no-new-privileges、4GB 内存限制、2 核 CPU、pid-limit 100
+- **会话持久化** — `pi --continue` 接着聊、`pi --resume` 选历史对话
+- **可移植** — 不写死路径，`colima.yaml` 用 `"~"` 自动解析家目录，clone 下来改几个地方就能用
+- **一条命令升级** — `docker build --no-cache -t pi-sandbox .`，配置和会话不受影响
 
 ## 快速开始
 
