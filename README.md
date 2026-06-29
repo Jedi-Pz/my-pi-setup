@@ -1,55 +1,56 @@
-# My Pi Setup
+# 我的 Pi 配置
 
-Pi coding agent sandbox running in a Colima VM + Docker container on macOS (Apple Silicon).
+在 macOS (Apple Silicon) 上通过 Colima 虚拟机 + Docker 容器运行 Pi 编码助手的沙箱。所有存储在外挂硬盘，主 SSD 零占用。
 
-## Quickstart
+## 快速开始
 
 ```bash
-# 1. Install prerequisites
+# 1. 安装依赖
 brew install colima docker
 
-# 2. Start Colima (edit mounts to match your setup)
+# 2. 启动 Colima（按你的路径调整挂载）
 colima start --vm-type=vz --vz-rosetta --cpu 4 --memory 6 --disk 60
 
-# 3. Ensure these mounts are in colima.yaml (add if missing):
+# 3. 确保 colima.yaml 里有这些挂载（没有就加上）：
 #    mounts:
-#      - location: "<your-project-drive>"   # external drive, if any
+#      - location: "<你的项目盘>"  # 外挂硬盘路径，如有
 #        writable: true
 #      - location: "~"
 #        writable: true
 
-# 4. Build Pi container image
+# 4. 构建 Pi 容器镜像
 docker build -t pi-sandbox .
 
-# 5. Add alias to ~/.zshrc
-#    alias pi="<path-to-this-repo>/pi-sandbox.sh"
+# 5. 在 ~/.zshrc 里加 alias
+#    alias pi="<本仓库路径>/pi-sandbox.sh"
 
-# Use
-pi                          # interactive mode
-pi --continue               # resume previous session
-pi -p "..." --no-session    # one-shot, ephemeral
-
-## Files
-
-- `Dockerfile` — Pi container image (Node 24 + pi 0.80.2 + git + ripgrep + fd)
-- `pi-sandbox.sh` — Launch script (cap-drop ALL, resource limits, persistent volume)
-- `cookbook/` — Setup guides and configuration notes
-
-## Architecture
-
-```
-macOS host → Colima Linux VM (VZ.framework, on external drive)
-  → Docker container (cap-drop ALL, 4GB mem, 2 CPU)
-    → Pi coding agent
+# 使用
+pi                          # 交互模式
+pi --continue               # 接着上次对话继续
+pi -p "..." --no-session    # 一次性，不保存会话
 ```
 
-All storage on external drive. Internal SSD: zero persistent footprint.
+## 文件说明
 
-## Model Config
+- `Dockerfile` — Pi 容器镜像（Node 24 + pi 0.80.2 + git + ripgrep + fd）
+- `pi-sandbox.sh` — 启动脚本（cap-drop ALL、资源限制、持久化卷）
+- `cookbook/` — 配置指南与踩坑笔记
 
-`models.json` redirects Anthropic to local proxy (`cc-switch` on `host.docker.internal:15721`), using the same Claude model (claude-opus-4-8) as the host Claude Code.
+## 架构
 
-## Upgrading
+```
+macOS 宿主机 → Colima Linux 虚拟机（VZ.framework，在外挂盘）
+  → Docker 容器（cap-drop ALL、4GB 内存、2 核 CPU）
+    → Pi 编码助手
+```
+
+所有持久存储在外挂硬盘，主 SSD 零占用。
+
+## 模型配置
+
+`models.json` 把 Anthropic 指向本地代理（`cc-switch` 监听在 `host.docker.internal:15721`），和宿主机 Claude Code 用同一个模型（claude-opus-4-8）。
+
+## 升级
 
 ```bash
 docker build --no-cache -t pi-sandbox .
